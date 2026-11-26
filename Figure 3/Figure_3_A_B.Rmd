@@ -1,0 +1,123 @@
+---
+title: "Elkrief Lab: Figures 3 A-B"
+output: 
+  pdf_document:
+    keep_md: true
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+---
+
+
+```{r library, include=FALSE}
+##### Load packages #####
+library(tidyverse)
+library(readr)
+library(phyloseq)
+library(vegan)
+library(readxl)
+library(ggplot2)
+library(microbiome)
+library(randomcoloR)
+metaphlan_profiles <- read_csv("count_table.csv") %>% column_to_rownames(var = "...1")
+taxmat <- read_csv("tax_table.csv") %>% column_to_rownames(var = "...1")
+metadata_table <- read_csv("metadata_table.csv") %>% column_to_rownames(var = "...1")
+
+
+OTU2 = otu_table(as.matrix(metaphlan_profiles), taxa_are_rows = TRUE)
+TAX2= tax_table(as.matrix(taxmat))
+SAMPLE2 <- sample_data(metadata_table)
+ps2 <- phyloseq(OTU2, TAX2,SAMPLE2)
+
+
+colors_analysis = c("R" = "blue","NR"= "red", "D1" = "#F8766D",
+                                                             "D2" ="#D89000",
+                                                             "D5" ="#A3A500",
+                                                             "D7" ="#39B600",
+                                                             "D9" ="#00BF7D",
+                                                             "D10" ="#00BFC4",
+                                                             "D11" ="#00B0F6",
+                                                             "D13" ="#9590FF",
+                                                             "D14" ="#E76BF3",
+                                                             "D15" ="#FF62BC",
+                    "No" = "darkgreen", "Yes" = "purple","Melanoma" = "darkgreen", "NSCLC" = "purple",
+                    "Donor" = "blueviolet","No G3 irAEs" = "darkgreen","G3 irAEs" = "blueviolet")
+
+#####
+```
+
+# Fig.3A
+
+
+```{r , message=FALSE,warning=FALSE,echo=FALSE,fig.width=6, fig.height=5}
+
+
+
+
+ps1.1_meta <- data.frame(sample_data(ps2))
+ps1.1_count <- data.frame(otu_table(ps2))
+taxa.rich<-specnumber(t(ps1.1_count))
+#Shannon Index
+taxa.shannon<- vegan::diversity(t(ps1.1_count), "shannon")
+taxa.adiv<-data.frame(`#SampleID`=names(ps1.1_count),
+                      RICHNESS=taxa.rich,
+                      SHANNON=taxa.shannon, check.names = F)
+rownames(taxa.adiv) <- gsub('\\.',"-",rownames(taxa.adiv))
+ps1.1_meta<-merge(ps1.1_meta, taxa.adiv, by= 0) #, all=T
+ps1.1_meta <- ps1.1_meta %>% column_to_rownames('Row.names')
+
+
+
+
+```
+
+
+
+```{r , message=FALSE,warning=FALSE,echo=FALSE,fig.width=10, fig.height=7}
+
+ggplot(ps1.1_meta[which(ps1.1_meta$fmt != "Donor"),], aes(x=time_point, y=RICHNESS, color=subject_id))+ 
+  geom_point(size = 3) + 
+  theme_classic() + 
+  theme(strip.background = element_blank(), axis.text.x.bottom = element_text(angle =0),
+        text = element_text(size = 18),legend.position = 'right',legend.title = element_text(size = 14),
+    legend.text  = element_text(size = 12)) + 
+  xlab(NULL) + 
+  scale_x_discrete(drop = TRUE)+
+  geom_line(aes(group = subject_id), size= 2) +scale_x_discrete(
+    labels = c("V2" = "Baseline", "V4" = "1 w", "V5" = "1 m", "V6" = "2 m", "V7" = "3 m", "V8" = "6 m", "V81" = "9 m" , "V9" = "1 y"))
+
+
+
+
+
+
+
+
+```
+
+
+# Fig.3B
+
+
+
+```{r , message=FALSE,warning=FALSE,echo=FALSE,fig.width=10, fig.height=7}
+# Alpha Diversity ####
+
+ggplot(ps1.1_meta[which(ps1.1_meta$fmt != "Donor"),], aes(x=time_point, y=SHANNON, color=subject_id))+ 
+  geom_point(size = 3) + 
+  theme_classic() + 
+  theme(strip.background = element_blank(), axis.text.x.bottom = element_text(angle =0),
+        text = element_text(size = 18),legend.position = 'right',legend.title = element_text(size = 14),
+    legend.text  = element_text(size = 12)) + 
+  xlab(NULL) + 
+  scale_x_discrete(drop = TRUE)+
+  geom_line(aes(group = subject_id), size= 2) +scale_x_discrete(
+    labels = c("V2" = "Baseline", "V4" = "1 w", "V5" = "1 m", "V6" = "2 m", "V7" = "3 m", "V8" = "6 m", "V81" = "9 m" , "V9" = "1 y"))
+
+
+
+
+
+
+
+
+```
+

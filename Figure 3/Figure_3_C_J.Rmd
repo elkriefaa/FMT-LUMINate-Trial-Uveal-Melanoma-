@@ -1,0 +1,212 @@
+---
+title: "Elkrief Lab: Figures 3 C-J"
+output: 
+  pdf_document:
+    keep_md: true
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+---
+
+
+```{r library, include=FALSE}
+##### Load packages #####
+library(tidyverse)
+library(readr)
+library(phyloseq)
+library(vegan)
+library(readxl)
+library(ggplot2)
+library(microbiome)
+library(randomcoloR)
+metaphlan_profiles <- read_csv("count_table.csv") %>% column_to_rownames(var = "...1")
+taxmat <- read_csv("tax_table.csv") %>% column_to_rownames(var = "...1")
+metadata_table <- read_csv("metadata_table.csv") %>% column_to_rownames(var = "...1")
+SGB_classification_loss <- read_csv("SGB_classification_loss.csv")
+
+OTU2 = otu_table(as.matrix(metaphlan_profiles), taxa_are_rows = TRUE)
+TAX2= tax_table(as.matrix(taxmat))
+SAMPLE2 <- sample_data(metadata_table)
+ps2 <- phyloseq(OTU2, TAX2,SAMPLE2)
+
+
+colors_analysis = c("R" = "blue","NR"= "red", "D1" = "#F8766D",
+                                                             "D2" ="#D89000",
+                                                             "D5" ="#A3A500",
+                                                             "D7" ="#39B600",
+                                                             "D9" ="#00BF7D",
+                                                             "D10" ="#00BFC4",
+                                                             "D11" ="#00B0F6",
+                                                             "D13" ="#9590FF",
+                                                             "D14" ="#E76BF3",
+                                                             "D15" ="#FF62BC",
+                    "No" = "darkgreen", "Yes" = "purple","Melanoma" = "darkgreen", "NSCLC" = "purple",
+                    "Donor" = "blueviolet","No G3 irAEs" = "darkgreen","G3 irAEs" = "blueviolet")
+
+#####
+```
+
+# Fig. 3C
+
+```{r bray_donor,include=FALSE}
+
+
+donor_ids = rownames(metadata_table[which(metadata_table$subject_type == 'donor'),])
+
+
+
+cor_abu_new <- metadata_table
+
+for(i in unique(sample_data(ps2)$donor_sample)) {
+  dist <- phyloseq::distance(subset_samples(ps2, donor_sample %in% c(i)), 
+                             method = "bray") %>% as.matrix()
+  cor_abu_new <- merge(cor_abu_new, dist[,which(colnames(dist) %in% donor_ids)], 
+                       by=0, all.x = T) %>% column_to_rownames(var='Row.names')
+}  
+
+colnames(cor_abu_new)[14:18] <- 1:5 #fix colnames to not have same names
+cor_abu <- cor_abu_new %>% tidyr::unite('dis.to.donor', 14:18, na.rm = T, remove = T) #united columns need to be modified depending on the lenght of each dataframe
+cor_abu$dis.to.donor <- as.numeric(cor_abu$dis.to.donor)
+
+cor_abu <- cor_abu %>% drop_na(dis.to.donor)
+cor_abu <- cor_abu[which(cor_abu$response_status != "Donor"),]
+
+
+
+
+patient_id <- unique(cor_abu$subject_id)
+cor_abu_new <- cor_abu
+data_list <- c()
+for(i in unique(sample_data(subset_samples(ps2, subject_id %in% patient_id))$subject_id)) {
+  tmp <- cor_abu_new[which(cor_abu$subject_id == i),]
+  tmp$rel_abu_V2 <- tmp$dis.to.donor / tmp[which(tmp$time_point %in% c("V2")),'dis.to.donor']
+  nam <- paste('cor_abu_new_', i, sep = "")
+  assign(nam, tmp)
+}
+
+cor_abu <- do.call(rbind, lapply(ls(pattern = 'cor_abu_new_'), get))
+
+```
+
+```{r,message=FALSE,warning=FALSE,echo=FALSE, fig.width=8, fig.height=8}
+
+
+
+ggplot(cor_abu, aes(x=time_point, y= rel_abu_V2))  +
+  geom_hline(yintercept = 1,linetype = 'dashed') + 
+  geom_line(aes(group=subject_id, color = subject_id), size=1.6) +
+  theme_bw() + labs(y= "Bray-Curtis dissimilarity \n to donor fold change",x=NULL) + 
+  theme(strip.background = element_blank(), axis.text.x.bottom = element_text(angle =90, vjust=0.5, hjust=1,size = 14),
+        axis.text.y = element_text(size = 18),
+        axis.title.y = element_text(size = 16),   
+        axis.title.x = element_blank(),     
+        strip.text = element_text(size = 16),         
+        text = element_text(size = 16),legend.position='right')+scale_y_continuous(
+    limits = c(0.59, 1.2),           # y-axis range
+    breaks = seq(0.6, 1.2, by = 0.2))+scale_x_discrete(
+    labels = c("V2" = "Baseline", "V4" = "1 w", "V5" = "1 m", "V6" = "2 m", "V7" = "3 m", "V8" = "6 m", "V81" = "9 m" , "V9" = "1 y"))
+
+
+```
+
+
+# Fig. 3D
+
+
+```{r,message=FALSE,warning=FALSE,echo=FALSE, fig.width=8, fig.height=8}
+
+sharing_rate <- read_csv("sharing_rate.csv") %>% column_to_rownames(var = "Row.names")
+
+
+
+sharing_rate$strain_sharing_rate <- sharing_rate$strain_sharing_rate*100
+
+ggplot(sharing_rate, aes(x=time_point, y= strain_sharing_rate)) +
+#  facet_wrap(~response_status) +
+  geom_line(aes(group=subject_id, color = subject_id),size=1.6) +
+  theme_bw()  + labs(y= "Strain Sharing Rate",x=NULL) +
+  theme(strip.background = element_blank(), axis.text.x.bottom = element_text(angle =90, vjust=0.5, hjust=1,size = 14),
+        axis.text.y = element_text(size = 18),
+        axis.title.y = element_text(size = 16),   
+        axis.title.x = element_blank(),     
+        strip.text = element_text(size = 16),         
+        text = element_text(size = 16),legend.position='right')+scale_x_discrete(
+    labels = c("V2" = "Baseline", "V4" = "1 w", "V5" = "1 m", "V6" = "2 m", "V7" = "3 m", "V8" = "6 m", "V81" = "9 m" , "V9" = "1 y"))
+
+
+
+```
+
+# Fig. 3E 
+
+```{r,message=FALSE,warning=FALSE,echo=FALSE, fig.width=8, fig.height=8}
+
+
+ggplot(SGB_classification_loss, aes(x=time_point, y= Lost)) +
+  geom_line(aes(group=subject_id, color = subject_id),size=1.6) +
+  theme_bw()  + labs(y= "Absolute Lost",x=NULL) +
+  theme(strip.background = element_blank(), axis.text.x.bottom = element_text(angle =0, vjust=1, hjust=0.5,size = 14),
+        axis.text.y = element_text(size = 18),
+        axis.title.y = element_text(size = 16),   
+        axis.title.x = element_blank(),     
+        strip.text = element_text(size = 16),         
+        text = element_text(size = 16),legend.position='right')+scale_x_discrete(
+    labels = c("V2" = "Baseline", "V4" = "1 w", "V5" = "1 m", "V6" = "2 m", "V7" = "3 m", "V8" = "6 m", "V81" = "9 m" , "V9" = "1 y"))
+
+
+```
+
+
+
+# Fig. 3F-J
+
+```{r,message=FALSE,warning=FALSE,echo=FALSE,fig.width=14, fig.height=10}
+set.seed(125)
+
+
+
+
+glom <- tax_glom(ps2, taxrank = 'Species', NArm = FALSE)
+ps.melt <- psmelt(glom)
+ps.melt_filt <- ps.melt %>%
+  dplyr::group_by(Species) %>%
+  dplyr::summarise(mean=mean(Abundance))
+top50 <- names(sort(taxa_sums(glom), decreasing=TRUE))[1:50]
+ps.melt <- ps.melt[which(ps.melt$OTU %in% top50),]
+
+ps.melt[which(ps.melt$time_point == "Donor"), ]$time_point <- ps.melt[which(ps.melt$time_point == "Donor"), ]$subject_id
+ps.melt_sum <- ps.melt %>%
+  dplyr::group_by(Sample,Species,time_point,donor_sample) %>%
+  dplyr::summarise(Abundance=sum(Abundance))
+ps.melt_sum$time_point <- factor(ps.melt_sum$time_point, levels = c("D2","D5","D10","D11","D12","V2","V4","V5","V6","V7","V8","V9"))
+
+facet_names <- c(
+  "FMT-101-004-94-D2" = "FMT-101-004",
+  "FMT-101-005-105-D5" = "FMT-101-005",
+  "FMT-101-014-166-D10" = "FMT-101-014",
+  "FMT-101-023-215-D11" = "FMT-101-023",
+  "FMT-106-004-223-D12" = "FMT-106-004"
+)
+palette_spc <- distinctColorPalette(length(unique(ps.melt$Species)))
+names(palette_spc) <- unique(ps.melt$Species)
+palette_spc["Other"] <- "grey50"
+
+
+h1 <- ggplot(ps.melt_sum, aes(x = time_point, y = Abundance, fill = Species)) +
+  geom_bar(stat = "identity", position = "fill",aes(fill=Species)) +
+  facet_wrap(~donor_sample, scales = "free_x", nrow = 2, labeller = labeller(donor_sample = facet_names)) +
+  theme(strip.background = element_blank(),
+        text = element_text(size = 18),legend.text = element_text(size =10),
+        axis.text.x.bottom = element_text(angle =90, vjust=0.5, hjust=1),
+        legend.key.size = unit(0.3, "cm"))+ scale_fill_manual(values= palette_spc)+
+  scale_y_continuous(limits = c(0, 1),expand = c(0, 0)) +
+  labs(x=NULL, y="Relative abundance")+ guides(fill = guide_legend(ncol = 1))+
+  scale_x_discrete(
+    labels = c("D2"= "D2","D5"= "D5","D10"= "D10","D11"= "D11","D12"= "D12","V2" = "Baseline", "V4" = "1 w", "V5" = "1 m", "V6" = "2 m", "V7" = "3 m", "V8" = "6 m", "V81" = "9 m" , "V9" = "1 y"))
+
+
+h1
+
+
+```
+
+
+
